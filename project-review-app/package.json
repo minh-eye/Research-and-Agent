@@ -1,0 +1,14 @@
+{
+  "name": "project-review-app",
+  "version": "1.0.0",
+  "private": true,
+  "description": "harness-review.vercel.app을 참고해 재구성한, 개인용 프로젝트 리뷰 코칭 웹앱",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
