@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .claude/hooks/save-session-to-obsidian.mjs",
+            "timeout": 30,
+            "statusMessage": "Saving session to Obsidian..."
+          }
+        ]
+      }
+    ]
+  }
+}
