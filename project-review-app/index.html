@@ -1,0 +1,1344 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Project Review — 프로젝트 리뷰 코칭 피드백</title>
+<meta name="description" content="직접 진행한 프로젝트 자료(코드 설명, 기획서, 보고서, 슬라이드 등)를 업로드하면 강점·성장 지점·엔지니어링 보완점을 진단하고 실재하는 GitHub 학습 경로를 제안하는 무채점 코칭 피드백 웹앱." />
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+
+<!-- 파싱 레이어 (브라우저) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<!-- 렌더 레이어 -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.0/marked.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.9/purify.min.js"></script>
+
+<!-- 배포 설정: 공개 배포 시 프록시를 쓰면 브라우저가 API 키를 다루지 않습니다 -->
+<script>
+  window.PROJECT_REVIEW_CONFIG = {
+    // 프록시 엔드포인트 URL. 값을 채우면 '프록시 모드'로 전환됩니다
+    //  → 키 입력칸이 사라지고, 키는 서버(env: ANTHROPIC_API_KEY)에만 보관됩니다.
+    //   · 번들 Node 서버(server.js) 또는 Vercel 함수(api/messages.js): "/api/messages"
+    //   · 비워두면(""): 사용자가 키를 직접 입력하는 직접/로컬 모드.
+    proxyUrl: "/api/messages",
+    // 모델 고정. 비우면 UI 선택값을 사용.
+    model: "claude-opus-4-8"
+  };
+</script>
+
+<style>
+  :root{
+    /* 남색 + 흰색 + 골드(강조) */
+    --paper:#f5f6fa;           /* 거의 흰 배경 */
+    --paper-2:#ffffff;         /* 카드: 화이트 */
+    --ink:#13243f;             /* 남색 텍스트 */
+    --ink-soft:#37486a;
+    --muted:#6a7793;
+    --line:#dde3ee;
+    --grid:rgba(19,36,63,0.05);
+
+    --blueprint:#16294d;       /* 남색 (구조) */
+    --blueprint-deep:#0d1c39;
+    --teal:#a98321;            /* 골드 (강점) — 텍스트 가독용 진한 골드 */
+    --ochre:#8a6a2c;           /* 딥 앰버골드 (성장) */
+
+    --teal-bg:rgba(169,131,33,0.11);
+    --ochre-bg:rgba(138,106,44,0.11);
+    --blueprint-bg:rgba(22,41,77,0.06);
+
+    --gold:#c6a253;            /* 강조 골드(장식: 라인·노드) */
+    --gold-ink:#9a7a26;        /* 골드 텍스트(가독) */
+    --gold-bg:rgba(198,162,83,0.13);
+
+    --radius:14px;
+    --shadow:0 1px 2px rgba(19,36,63,.06), 0 12px 30px -18px rgba(19,36,63,.30);
+    --mono:"JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    --sans:"Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --display:"Space Grotesk", var(--sans);
+  }
+
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; }
+  body{
+    font-family:var(--sans);
+    color:var(--ink);
+    background:
+      linear-gradient(var(--grid) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid) 1px, transparent 1px),
+      var(--paper);
+    background-size:27px 27px, 27px 27px, auto;
+    line-height:1.6;
+    -webkit-font-smoothing:antialiased;
+  }
+  a{ color:var(--blueprint); }
+
+  .wrap{ max-width:880px; margin:0 auto; padding:0 20px; }
+
+  /* ───────── Hero ───────── */
+  .hero{
+    position:relative;
+    border-top:3px solid var(--gold);
+    border-bottom:1px solid var(--line);
+    background:
+      radial-gradient(120% 140% at 100% 0%, var(--blueprint-bg), transparent 60%);
+    overflow:hidden;
+  }
+  .hero::after{
+    content:"";
+    position:absolute; inset:0;
+    background-image:
+      linear-gradient(var(--grid) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+    background-size:27px 27px;
+    pointer-events:none;
+    mask-image:linear-gradient(180deg, #000 30%, transparent);
+  }
+  .hero .wrap{ position:relative; z-index:1; padding-top:34px; padding-bottom:26px; }
+
+  .brand{ display:flex; align-items:center; gap:12px; }
+  .brand svg{ width:38px; height:38px; flex:0 0 auto; }
+  .brand .tag{
+    font-family:var(--mono); font-size:11px; letter-spacing:.14em;
+    text-transform:uppercase; color:var(--gold-ink);
+    border:1px solid color-mix(in srgb, var(--gold) 55%, var(--line));
+    border-radius:999px; padding:3px 9px;
+    background:var(--gold-bg);
+  }
+  h1{
+    font-family:var(--display); font-weight:700;
+    font-size:clamp(26px, 4.6vw, 38px);
+    margin:16px 0 6px; letter-spacing:-.01em; line-height:1.12;
+  }
+  .lede{ color:var(--ink-soft); max-width:60ch; margin:0; font-size:15.5px; }
+  .lede b{ color:var(--ink); font-weight:600; }
+  .pill-row{ display:flex; flex-wrap:wrap; gap:7px; margin-top:16px; }
+  .pill{
+    font-family:var(--mono); font-size:11px; letter-spacing:.04em;
+    color:var(--ink-soft); background:var(--paper-2);
+    border:1px solid var(--line); border-radius:999px; padding:4px 10px;
+  }
+  .pill b{ color:var(--gold-ink); font-weight:600; }
+
+  /* ───────── 리포트 활용 안내 ───────── */
+  .guide{
+    margin-top:22px; position:relative; overflow:hidden;
+    background:var(--paper-2); border:1px solid var(--line); border-radius:var(--radius);
+    box-shadow:var(--shadow); padding:18px 18px 8px 22px;
+  }
+  .guide::before{ content:""; position:absolute; left:0; top:0; bottom:0; width:4px; background:var(--gold); }
+  .guide-head .kicker{
+    font-family:var(--mono); font-size:11px; letter-spacing:.12em; text-transform:uppercase;
+    color:var(--gold-ink);
+  }
+  .guide-head p{ margin:6px 0 14px; color:var(--ink); font-weight:600; font-family:var(--display); font-size:16px; }
+  .guide-grid{ list-style:none; margin:0; padding:0; display:grid; grid-template-columns:1fr 1fr; gap:0 22px; }
+  .guide-grid li{ display:flex; gap:12px; align-items:flex-start; padding:13px 0; border-top:1px solid var(--line); }
+  .guide-grid .gi{
+    flex:0 0 auto; width:28px; height:28px; border-radius:8px;
+    background:var(--blueprint); color:#fff; font-family:var(--mono); font-weight:600; font-size:12px;
+    display:flex; align-items:center; justify-content:center; margin-top:1px;
+  }
+  .guide-grid b{ color:var(--ink); font-size:14px; }
+  .guide-grid p{ margin:3px 0 0; font-size:13px; color:var(--ink-soft); line-height:1.5; }
+  .guide-grid em{ font-style:normal; color:var(--gold-ink); font-weight:600; }
+  @media (max-width:640px){ .guide-grid{ grid-template-columns:1fr; gap:0; } }
+
+  /* ───────── Key bar ───────── */
+  .keybar{
+    margin-top:20px; background:var(--paper-2); border:1px solid var(--line);
+    border-radius:var(--radius); padding:14px 16px; box-shadow:var(--shadow);
+  }
+  .keybar label.k{
+    display:block; font-family:var(--mono); font-size:11px; letter-spacing:.08em;
+    text-transform:uppercase; color:var(--muted); margin-bottom:6px;
+  }
+  .key-row{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  .key-row input[type=password]{ flex:1 1 280px; min-width:0; }
+  input, select{
+    font-family:var(--sans); font-size:14px; color:var(--ink);
+    background:var(--paper); border:1px solid var(--line); border-radius:9px;
+    padding:9px 11px; outline:none;
+  }
+  input:focus-visible, select:focus-visible, .dz:focus-visible, button:focus-visible,
+  summary:focus-visible, details:focus-visible{
+    outline:2px solid var(--blueprint); outline-offset:2px;
+  }
+  .adv{ margin-top:10px; }
+  .adv > summary{
+    cursor:pointer; font-family:var(--mono); font-size:11.5px; letter-spacing:.05em;
+    color:var(--muted); list-style:none; user-select:none; width:max-content;
+  }
+  .adv > summary::-webkit-details-marker{ display:none; }
+  .adv > summary::before{ content:"▸ "; color:var(--blueprint); }
+  .adv[open] > summary::before{ content:"▾ "; }
+  .adv-grid{
+    display:grid; grid-template-columns:1fr 1fr; gap:10px 14px; margin-top:12px;
+  }
+  .adv-grid .field{ display:flex; flex-direction:column; gap:5px; }
+  .adv-grid .field.full{ grid-column:1 / -1; }
+  .adv-grid label{ font-size:12px; color:var(--muted); font-family:var(--mono); letter-spacing:.03em; }
+  .chk{ display:flex; align-items:center; gap:8px; font-size:13px; color:var(--ink-soft); }
+  .chk input{ width:16px; height:16px; }
+  .privacy{ font-size:12px; color:var(--muted); margin-top:11px; line-height:1.5; }
+
+  button{
+    font-family:var(--sans); font-weight:600; font-size:14px; cursor:pointer;
+    border:1px solid var(--line); border-radius:9px; padding:9px 15px;
+    background:var(--paper-2); color:var(--ink); transition:transform .08s ease, background .15s ease, border-color .15s ease;
+  }
+  button:hover{ border-color:var(--blueprint); }
+  button:active{ transform:translateY(1px); }
+  button.primary{ background:var(--blueprint); border-color:var(--blueprint); color:#fff; }
+  button.primary:hover{ background:var(--blueprint-deep); border-color:var(--blueprint-deep); }
+  button.ghost{ background:transparent; }
+  button:disabled{ opacity:.5; cursor:not-allowed; transform:none; }
+
+  /* ───────── Intake ───────── */
+  main{ padding:30px 0 10px; }
+  .dz{
+    border:2px dashed var(--line); border-radius:var(--radius);
+    background:
+      radial-gradient(120% 120% at 50% 0%, var(--blueprint-bg), transparent 55%),
+      var(--paper-2);
+    padding:42px 24px; text-align:center; cursor:pointer;
+    transition:border-color .15s ease, background .15s ease;
+  }
+  .dz.drag{ border-color:var(--blueprint); background:var(--blueprint-bg); }
+  .dz .ico{ color:var(--blueprint); margin-bottom:10px; }
+  .dz h2{ font-family:var(--display); font-size:19px; margin:0 0 6px; font-weight:600; }
+  .dz p{ margin:0; color:var(--muted); font-size:13.5px; }
+  .dz .formats{ font-family:var(--mono); font-size:11.5px; color:var(--ink-soft); margin-top:14px; letter-spacing:.03em; }
+  .intake-note{ margin-top:14px; font-size:13px; color:var(--muted); text-align:center; }
+  .intake-note.warn{ color:var(--ochre); font-weight:500; }
+
+  /* ───────── Submission card ───────── */
+  .submission{
+    background:var(--paper-2); border:1px solid var(--line); border-radius:var(--radius);
+    box-shadow:var(--shadow); padding:16px 18px; margin-bottom:22px;
+  }
+  .submission .meta{ display:flex; flex-wrap:wrap; gap:8px 16px; align-items:center; }
+  .submission .fmt{
+    font-family:var(--mono); font-size:11px; letter-spacing:.07em; text-transform:uppercase;
+    color:#fff; background:var(--blueprint); border-radius:6px; padding:3px 8px;
+  }
+  .submission .fname{ font-weight:600; word-break:break-all; }
+  .submission .stat{ font-family:var(--mono); font-size:12px; color:var(--muted); }
+  .warns{ margin-top:11px; display:flex; flex-direction:column; gap:6px; }
+  .warns .w{
+    font-size:12.5px; color:var(--ochre); background:var(--ochre-bg);
+    border:1px solid color-mix(in srgb, var(--ochre) 30%, transparent);
+    border-radius:8px; padding:7px 10px; display:flex; gap:7px;
+  }
+  details.preview{ margin-top:12px; border-top:1px dashed var(--line); padding-top:10px; }
+  details.preview summary{
+    cursor:pointer; font-family:var(--mono); font-size:12px; color:var(--blueprint);
+    list-style:none; width:max-content;
+  }
+  details.preview summary::-webkit-details-marker{ display:none; }
+  details.preview summary::before{ content:"▸ "; }
+  details.preview[open] summary::before{ content:"▾ "; }
+  .preview pre{
+    margin:10px 0 0; max-height:260px; overflow:auto; white-space:pre-wrap; word-break:break-word;
+    font-family:var(--mono); font-size:12px; color:var(--ink-soft);
+    background:var(--paper); border:1px solid var(--line); border-radius:9px; padding:12px;
+  }
+
+  .toolbar{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:18px; }
+  .toolbar .spacer{ flex:1; }
+
+  /* ───────── 단계형 리포트 (스텝퍼) ───────── */
+  .stepper{ display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px; }
+  .step{
+    flex:1 1 0; min-width:128px; display:flex; align-items:center; gap:9px;
+    background:var(--paper-2); border:1px solid var(--line); border-radius:11px;
+    padding:9px 11px; cursor:pointer; text-align:left;
+    transition:border-color .15s ease, background .15s ease;
+  }
+  .step:hover{ border-color:var(--blueprint); }
+  .step.active{ border-color:var(--gold); background:var(--gold-bg); }
+  .step .sn{
+    flex:0 0 auto; width:24px; height:24px; border-radius:7px;
+    background:var(--blueprint); color:#fff; font-family:var(--mono); font-weight:600; font-size:11px;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .step.active .sn{ background:var(--gold); color:#241a05; }
+  .step .sl{ font-size:12.5px; font-weight:600; color:var(--ink); line-height:1.2; }
+  .step .sd{ margin-left:auto; width:8px; height:8px; border-radius:50%; background:var(--line); flex:0 0 auto; }
+  .step.s-loading .sd{ background:var(--gold); animation:bln 1s infinite ease-in-out; }
+  .step.s-done .sd{ background:var(--blueprint); }
+  .step.s-error .sd{ background:var(--ochre); }
+
+  .stage{ position:relative; }
+  .card{
+    background:var(--paper-2); border:1px solid var(--line);
+    border-left:4px solid var(--blueprint); border-radius:var(--radius);
+    box-shadow:var(--shadow); padding:20px 22px;
+  }
+  .stage > .card{ display:none; }
+  .stage > .card.active{ display:block; }
+  .card .chead{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  .card .ctag{
+    font-family:var(--mono); font-size:11px; letter-spacing:.12em; text-transform:uppercase;
+    color:var(--blueprint); border:1px solid var(--line); border-radius:6px; padding:3px 8px;
+    background:var(--blueprint-bg);
+  }
+  .card .ctitle{ font-family:var(--display); font-weight:600; font-size:18px; }
+  .card .cstatus{
+    margin-left:auto; font-family:var(--mono); font-size:11px; color:var(--muted);
+    display:flex; align-items:center; gap:7px;
+  }
+  .card .retry{ display:none; padding:5px 10px; font-size:12px; }
+  .card.is-error .retry, .card.is-done .retry{ display:inline-block; }
+
+  /* accents per category */
+  .card[data-accent=teal]{ border-left-color:var(--teal); }
+  .card[data-accent=teal] .ctag{ color:var(--teal); background:var(--teal-bg); }
+  .card[data-accent=ochre]{ border-left-color:var(--ochre); }
+  .card[data-accent=ochre] .ctag{ color:var(--ochre); background:var(--ochre-bg); }
+
+  /* 페이지 이동 */
+  .pager{ display:flex; align-items:center; gap:12px; margin-top:16px; }
+  .pager .page-ind{ font-family:var(--mono); font-size:12px; color:var(--muted); }
+  .pager .grow{ flex:1; }
+
+  .cbody{ margin-top:14px; font-size:14.5px; color:var(--ink-soft); }
+  .cbody.empty{ color:var(--muted); font-style:normal; }
+  .cbody p{ margin:0 0 10px; }
+  .cbody ul, .cbody ol{ margin:0 0 10px; padding-left:20px; }
+  .cbody li{ margin:5px 0; }
+  .cbody li strong, .cbody p strong{ color:var(--ink); }
+  .cbody code{ font-family:var(--mono); font-size:.88em; background:var(--paper); border:1px solid var(--line); border-radius:5px; padding:1px 5px; }
+  .cbody h1,.cbody h2,.cbody h3,.cbody h4{ font-family:var(--display); color:var(--ink); margin:14px 0 8px; font-size:15px; }
+  .cbody table{ border-collapse:collapse; width:100%; font-size:13px; margin:0 0 12px; }
+  .cbody th,.cbody td{ border:1px solid var(--line); padding:7px 9px; text-align:left; vertical-align:top; }
+  .cbody th{ background:var(--blueprint-bg); font-weight:600; color:var(--ink); }
+  .cbody a{ word-break:break-word; }
+  .cbody blockquote{ border-left:3px solid var(--line); margin:0 0 10px; padding:2px 0 2px 12px; color:var(--muted); }
+
+  /* 각주 — 쉽게 풀어보기 */
+  .footnote{ margin-top:18px; border-top:1px dashed var(--line); padding-top:14px; }
+  .footnote .fn-tag{
+    font-family:var(--mono); font-size:10.5px; letter-spacing:.08em; text-transform:uppercase;
+    color:var(--gold-ink); margin-bottom:8px; display:inline-block;
+  }
+  .fn-body{
+    font-size:13px; color:var(--ink-soft); line-height:1.65;
+    background:var(--gold-bg); border-left:3px solid var(--gold);
+    border-radius:0 10px 10px 0; padding:12px 14px;
+  }
+  .fn-body p{ margin:0 0 8px; } .fn-body p:last-child{ margin-bottom:0; }
+  .fn-body ul{ margin:4px 0 8px; padding-left:18px; }
+  .fn-body li{ margin:3px 0; }
+  .fn-body strong{ color:var(--ink); }
+  .fn-body code{ font-family:var(--mono); font-size:.88em; background:var(--paper-2); border:1px solid var(--line); border-radius:5px; padding:1px 5px; }
+
+  /* 강조 하이라이트 (골드 형광펜) */
+  .cbody mark, .fn-body mark{
+    background:linear-gradient(transparent 52%, color-mix(in srgb, var(--gold) 62%, transparent) 52%);
+    color:inherit; font-weight:600; padding:0 2px; border-radius:2px;
+  }
+
+  .err{ color:var(--ochre); font-size:13.5px; background:var(--ochre-bg);
+    border:1px solid color-mix(in srgb, var(--ochre) 30%, transparent); border-radius:9px; padding:11px 13px; }
+
+  .dots{ display:inline-flex; gap:3px; }
+  .dots i{ width:5px; height:5px; border-radius:50%; background:var(--blueprint); animation:bln 1s infinite ease-in-out; }
+  .dots i:nth-child(2){ animation-delay:.16s; } .dots i:nth-child(3){ animation-delay:.32s; }
+  @keyframes bln{ 0%,80%,100%{ opacity:.25; transform:scale(.8);} 40%{ opacity:1; transform:scale(1);} }
+
+  .skel{ height:13px; border-radius:6px; margin:9px 0;
+    background:linear-gradient(90deg, var(--paper) 25%, var(--line) 37%, var(--paper) 63%);
+    background-size:400% 100%; animation:sh 1.4s infinite; }
+  .skel.s2{ width:88%; } .skel.s3{ width:72%; }
+  @keyframes sh{ 0%{ background-position:100% 0; } 100%{ background-position:0 0; } }
+
+  /* ───────── 비밀번호 게이트 ───────── */
+  .gate{
+    position:fixed; inset:0; z-index:1000; display:flex; align-items:center; justify-content:center;
+    padding:20px; background:rgba(13,28,57,0.55);
+    -webkit-backdrop-filter:blur(4px); backdrop-filter:blur(4px);
+  }
+  .gate-card{
+    width:100%; max-width:360px; background:var(--paper-2);
+    border:1px solid var(--line); border-top:3px solid var(--gold); border-radius:var(--radius);
+    box-shadow:0 24px 60px -22px rgba(13,28,57,.6); padding:28px 24px;
+    text-align:center; display:flex; flex-direction:column; gap:12px;
+  }
+  .gate-brand{ font-family:var(--mono); font-size:11px; letter-spacing:.14em; color:var(--gold-ink); }
+  .gate-card h2{ font-family:var(--display); font-size:20px; margin:2px 0 0; color:var(--ink); }
+  .gate-sub{ margin:0 0 4px; font-size:13px; color:var(--muted); }
+  .gate-card input{ width:100%; text-align:center; padding:11px 12px; font-size:15px; }
+  .gate-card .primary{ width:100%; }
+  .gate-err{ color:var(--ochre); font-size:13px; margin:2px 0 0; }
+
+  /* ───────── Footer ───────── */
+  footer{ border-top:1px solid var(--line); margin-top:36px; }
+  footer .wrap{ padding:18px 20px 40px; }
+  .foot-note{ font-family:var(--mono); font-size:11.5px; color:var(--muted); line-height:1.7; }
+  .foot-note b{ color:var(--ink-soft); }
+
+  [hidden]{ display:none !important; }
+
+  @media (max-width:640px){
+    .step{ flex:1 1 46%; min-width:0; }
+    .step .sl{ font-size:11.5px; }
+    .adv-grid{ grid-template-columns:1fr; }
+    .card .cstatus{ margin-left:0; width:100%; }
+  }
+  @media (prefers-reduced-motion: reduce){
+    *{ animation:none !important; transition:none !important; }
+  }
+</style>
+</head>
+<body>
+
+<div id="gate" class="gate" hidden>
+  <form id="gateForm" class="gate-card">
+    <div class="gate-brand">🔒 PROJECT REVIEW</div>
+    <h2>비밀번호를 입력하세요</h2>
+    <p class="gate-sub">이 피드백 도구는 비밀번호로 보호되어 있습니다.</p>
+    <input id="gatePw" type="password" autocomplete="current-password" placeholder="비밀번호" />
+    <button id="gateBtn" type="submit" class="primary">입장</button>
+    <p id="gateErr" class="gate-err" hidden></p>
+  </form>
+</div>
+
+<header class="hero">
+  <div class="wrap">
+    <div class="brand">
+      <svg viewBox="0 0 48 48" fill="none" aria-hidden="true">
+        <rect x="3" y="3" width="42" height="42" rx="7" stroke="#16294d" stroke-width="2"/>
+        <circle cx="24" cy="24" r="5" fill="#ffffff" stroke="#16294d" stroke-width="2"/>
+        <circle cx="11" cy="11" r="3" fill="#c6a253"/>
+        <circle cx="37" cy="11" r="3" fill="#c6a253"/>
+        <circle cx="11" cy="37" r="3" fill="#16294d"/>
+        <circle cx="37" cy="37" r="3" fill="#16294d"/>
+        <path d="M14 13 L21 21 M34 13 L27 21 M14 35 L21 27 M34 35 L27 27" stroke="#16294d" stroke-width="1.6" stroke-linecap="round"/>
+      </svg>
+      <span class="tag">Project Review</span>
+    </div>
+
+    <h1>내 프로젝트 리뷰 코치</h1>
+    <p class="lede">직접 진행한 <b>프로젝트 자료</b>(코드 설명, 기획서, 보고서, 슬라이드 등)를 업로드하면, 강점과 성장 지점을 진단하고
+      하네스/엔지니어링 관점의 보완점을 제안한 뒤 <b>실재하는 GitHub 학습 경로</b>로 이어줍니다. 점수는 매기지 않습니다.</p>
+
+    <div class="pill-row">
+      <span class="pill"><b>무채점</b> · 코칭 우선</span>
+      <span class="pill"><b>근거 기반</b> · 제출물 인용</span>
+      <span class="pill"><b>실재성</b> · 웹 검색 검증</span>
+      <span class="pill">브라우저 내 추출</span>
+    </div>
+
+    <div class="guide">
+      <div class="guide-head">
+        <span class="kicker">이 피드백은 이렇게 활용하세요</span>
+        <p>어떤 프로젝트를 진행하든, 이 피드백으로 다음 버전을 더 잘 설계할 수 있도록 도와드립니다.</p>
+      </div>
+      <ol class="guide-grid">
+        <li>
+          <span class="gi">01</span>
+          <div><b>강점</b>
+            <p>잘 설계된 지점을 자료 근거와 함께 짚어줍니다. <em>→ 유지하고 더 밀어붙일 부분</em></p>
+          </div>
+        </li>
+        <li>
+          <span class="gi">02</span>
+          <div><b>성장 지점</b>
+            <p>약점을 “무엇을 · 어떻게 · 왜”로 풀어줍니다. <em>→ 바로 고쳐서 다시 만들어 볼 부분</em></p>
+          </div>
+        </li>
+        <li>
+          <span class="gi">03</span>
+          <div><b>엔지니어링 보완</b>
+            <p>컨텍스트 · 에러처리 · 문서화 · 재현성 등 보강점. <em>→ 다음 버전 설계에 반영</em></p>
+          </div>
+        </li>
+        <li>
+          <span class="gi">04</span>
+          <div><b>GitHub 학습 경로</b>
+            <p>실재하는 레포 추천 + 다음 한 걸음. <em>→ 클론해 써보거나 구조를 뜯어보며 학습</em></p>
+          </div>
+        </li>
+      </ol>
+    </div>
+
+    <div class="keybar">
+      <label class="k" for="apikey">Claude API 키</label>
+      <div class="key-row">
+        <input id="apikey" type="password" autocomplete="off" spellcheck="false"
+               placeholder="sk-ant-... (브라우저에서만 사용, 기본은 저장 안 함)" />
+      </div>
+
+      <details class="adv">
+        <summary>고급 설정 (모델 · 엔드포인트 · 키 저장)</summary>
+        <div class="adv-grid">
+          <div class="field">
+            <label for="model">분석 모델</label>
+            <select id="model">
+              <option value="claude-opus-4-8">claude-opus-4-8 (기본·가장 깊은 분석)</option>
+              <option value="claude-sonnet-4-6">claude-sonnet-4-6 (빠름)</option>
+              <option value="claude-haiku-4-5">claude-haiku-4-5 (가장 빠름)</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="baseurl">API Base URL</label>
+            <input id="baseurl" type="text" spellcheck="false" placeholder="https://api.anthropic.com" />
+          </div>
+          <div class="field full">
+            <label class="chk"><input id="savekey" type="checkbox" /> 이 브라우저에 키·설정 저장 (localStorage)</label>
+          </div>
+        </div>
+      </details>
+
+      <p class="privacy">파일은 <b>서버로 전송되지 않고</b> 브라우저 안에서만 텍스트로 변환됩니다.
+        분석을 위해 추출된 <b>텍스트만</b> Anthropic API로 전송됩니다. 정적 배포 시 도메인 허용·키 관리를 확인하세요.</p>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+  <!-- 1단계: 업로드 -->
+  <section id="intake" aria-label="자료 업로드">
+    <div id="dropzone" class="dz" tabindex="0" role="button"
+         aria-label="자료 파일 선택 또는 드래그앤드롭">
+      <div class="ico">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M12 16V4m0 0L7 9m5-5l5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <h2>자료를 끌어다 놓거나 클릭해서 선택</h2>
+      <p>직접 진행한 프로젝트를 <i>설명하는</i> 자료를 올려 주세요 (코드 설명, 기획서, 보고서, 슬라이드 등).</p>
+      <div class="formats">.md · .txt · .html · .docx · .pptx · .pdf</div>
+    </div>
+    <input id="fileinput" type="file"
+           accept=".md,.markdown,.txt,.html,.htm,.docx,.pptx,.pdf" hidden />
+    <p id="intakeNote" class="intake-note" aria-live="polite"></p>
+  </section>
+
+  <!-- 2단계: 리뷰 -->
+  <section id="review" aria-label="피드백 리포트" hidden>
+    <div class="toolbar">
+      <button id="analyzeBtn" class="primary" type="button">분석 시작</button>
+      <span class="spacer"></span>
+      <button id="resetBtn" class="ghost" type="button">새 프로젝트 분석</button>
+    </div>
+
+    <div id="submission" class="submission"></div>
+
+    <nav id="stepper" class="stepper" aria-label="섹션 단계"></nav>
+    <div id="stage" class="stage" aria-live="polite"></div>
+    <div class="pager">
+      <button id="prevBtn" type="button" class="ghost">◀ 이전</button>
+      <span id="pageInd" class="page-ind">1 / 4</span>
+      <span class="grow"></span>
+      <button id="nextBtn" type="button" class="primary">다음 ▶</button>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <p class="foot-note">
+      이 리포트는 <b>업로드한 자료에서 추출한 텍스트만</b>을 근거로 작성됩니다 ·
+      추천 GitHub 링크는 <b>클릭 전 재확인</b>을 권장합니다 ·
+      <b>점수·등급을 매기지 않는</b> 코칭 피드백입니다.
+    </p>
+  </div>
+</footer>
+
+<noscript>
+  <div class="wrap" style="padding:24px 20px;color:var(--ochre)">이 앱은 JavaScript가 필요합니다. 브라우저에서 스크립트를 허용해 주세요.</div>
+</noscript>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ───────── 설정 ───────── */
+  var CONFIG = {
+    MODEL_DEFAULT: "claude-opus-4-8",
+    BASE_URL_DEFAULT: "https://api.anthropic.com",
+    ANTHROPIC_VERSION: "2023-06-01",
+    MAX_CHARS: 14000,
+    MIN_CHARS: 60
+  };
+
+  /* 배포 모드: proxyUrl이 있으면 키를 서버(env)에 두는 프록시 모드 */
+  var HC = window.PROJECT_REVIEW_CONFIG || {};
+  var MODE = HC.proxyUrl ? "proxy" : "direct";
+  function isReady(){ return MODE === "proxy" || !!getApiKey(); }
+
+  /* ───────── 비밀번호 게이트 ───────── */
+  var GATE_KEY = "projectReview.pw";
+  var appPassword = "";
+  try { appPassword = sessionStorage.getItem(GATE_KEY) || ""; } catch (e) {}
+
+  function gateEls(){
+    return { box: document.getElementById("gate"), form: document.getElementById("gateForm"),
+             pw: document.getElementById("gatePw"), err: document.getElementById("gateErr"),
+             btn: document.getElementById("gateBtn") };
+  }
+  function showGate(){
+    var g = gateEls();
+    if (g.box){ g.box.hidden = false; if (g.pw) setTimeout(function(){ g.pw.focus(); }, 60); }
+  }
+  function hideGate(){ var g = gateEls(); if (g.box) g.box.hidden = true; }
+
+  async function authPing(pw){
+    try{
+      var r = await fetch(HC.proxyUrl, {
+        method: "POST",
+        headers: { "content-type": "application/json", "x-app-password": pw || "" },
+        body: JSON.stringify({ __authcheck: true })
+      });
+      return r.status;
+    }catch(e){ return 0; }
+  }
+
+  async function initGate(){
+    if (MODE !== "proxy"){ hideGate(); return; }   // 직접 모드는 게이트 없음
+    showGate();
+    var st = await authPing(appPassword);
+    if (st === 200) hideGate();          // 통과(비번 일치 또는 비번 불필요)
+    else if (st === 401){ /* 게이트 유지 — 입력 대기 */ }
+    else hideGate();                      // 판단 불가 → 통과(실제 호출 시 처리)
+  }
+
+  /* ───────── 공통 규칙 (모든 섹션 system 프롬프트에 부착) ───────── */
+  var COMMON_RULES = [
+    "",
+    "[공통 규칙]",
+    "- 한국어로, 간결하게 쓴다. 장황함은 코칭의 적이다. 끝까지 읽을 분량으로.",
+    "- **비개발자도 이해할 수 있게** 쉬운 말로 쓴다. 꼭 필요한 전문용어만 쓰고, 쓰면 각주에서 풀이한다.",
+    "- 모든 지적·칭찬은 제출물의 구체적 부분을 짧게 \"큰따옴표\"로 인용해 연결한다. 막연한 총평 금지.",
+    "- 점수·등급·서열을 매기지 않는다. 평가가 아니라 다음 한 걸음을 설계하는 코칭이다.",
+    "- 단정·훈계하지 않는다. 옆에서 함께 보는 선배 엔지니어의 어조로.",
+    "- 추측은 추측이라고 명시한다(예: \"추정:\", \"자료만으로는 확인 필요\"). 자료에 없는 사실을 지어내지 않는다.",
+    "- 출력은 마크다운. 섹션 제목은 UI가 이미 표시하므로 큰 제목(#, ##)으로 반복하지 말고 본문만 작성한다.",
+    "- 각 섹션에서 가장 핵심이 되는 한 구절(독자가 꼭 기억해야 할 부분)은 `<mark>…</mark>` 로 감싸 형광펜처럼 강조한다. 섹션당 1~2곳만, 남발하지 않는다.",
+    "",
+    "[각주 — 본문 뒤에 반드시 추가]",
+    "- 본문을 끝낸 뒤, 한 줄에 정확히 `[[각주]]` 만 출력하고, 그 아래에 비개발자용 각주를 단다.",
+    "- 각주는 이 순서로 작성한다:",
+    "  **🟡 쉽게 말하면** — 이 섹션 내용을 1~2문장으로 아주 쉽게 다시 설명.",
+    "  **📖 용어 풀이** — 본문에 나온 어려운 용어를 `용어 — 쉬운 뜻(한 줄)`로. 어려운 용어가 없으면 이 항목은 생략.",
+    "  **💡 꿀팁** — 바로 써먹을 수 있는 실용적인 팁 한 가지.",
+    "- 각주는 짧고 친절하게, 일상어로 쓴다."
+  ].join("\n");
+
+  /* ───────── 4개 섹션 정의 ───────── */
+  var SECTIONS = [
+    {
+      id: "strengths", num: "01", tag: "STRENGTHS", title: "요약 · 강점", accent: "teal",
+      maxTokens: 2200,
+      system:
+        "당신은 작성자가 진행한 '프로젝트 산출물'을 검토하는 선배 엔지니어이자 코치입니다.\n" +
+        "이 섹션의 임무는 (1) 무엇을 만든 프로젝트인지 한 문장으로 요약하고, (2) 강점을 먼저, 충분히 인정하는 것입니다.\n\n" +
+        "[작성 형식]\n" +
+        "- 첫 줄: 만든 것을 한 문장으로 요약하고 **굵게** 표시한다.\n" +
+        "- 이어서 \"강점\"을 3개 내외 불릿으로. 각 강점은 `**[자료 근거]** — 왜 그것이 좋은 설계인지` 형태로.\n" +
+        "- 근거는 제출물에서 실제로 확인되는 부분을 짧게 인용한다." +
+        COMMON_RULES
+    },
+    {
+      id: "growth", num: "02", tag: "GROWTH", title: "성장 지점", accent: "ochre",
+      maxTokens: 2300,
+      system:
+        "당신은 작성자의 '프로젝트 산출물'을 검토하는 선배 엔지니어이자 코치입니다.\n" +
+        "이 섹션의 임무는 약점을 '문제'가 아니라 '성장 지점'으로 프레이밍하여, 작성자가 바로 시도할 수 있는 개선으로 연결하는 것입니다.\n\n" +
+        "[작성 형식]\n" +
+        "- \"성장 지점\"을 3개 내외 불릿으로. 각 항목은 `**[근거]** — 무엇을 / 어떻게 바꾸면 / 왜 좋아지는지` 형태로.\n" +
+        "- 개선책 없는 약점 나열은 금지. 항상 \"여기에 ○○을 더하면\" 어조로 개선책과 한 쌍으로 제시한다.\n" +
+        "- 이미 잘된 점이 있으면 짧게 인정한 뒤 다음 단계를 제안해도 좋다." +
+        COMMON_RULES
+    },
+    {
+      id: "harness", num: "03", tag: "ENGINEERING", title: "하네스 엔지니어링 보완", accent: "blueprint",
+      maxTokens: 2800,
+      system:
+        "당신은 하네스/소프트웨어 엔지니어링 전문가입니다. 작성자의 '프로젝트 산출물'을 검토하여, '더하면 견고해지는 것'을 제안합니다.\n" +
+        "이 프로젝트가 에이전트/스킬/자동화든, 일반 소프트웨어든, 연구·문서 산출물이든 상관없습니다.\n" +
+        "아래 점검 축 중 **제출물에 실제로 해당하는 축만** 다룹니다(억지로 모든 축을 채우지 말 것).\n\n" +
+        "[점검 축]\n" +
+        "1. 컨텍스트 설계 — 무엇이 컨텍스트/입력에 들어가고 어떻게 관리되나? 점진적 로딩? 정보 누수?\n" +
+        "2. 트리거링/스코프 — (에이전트·자동화가 있다면) 언제 발동되나? 경계가 명확한가? 너무 넓거나 좁지 않은가?\n" +
+        "3. 지시 구조 — 문서/설계가 모호하지 않은가? 좋은·나쁜 예시가 있나?\n" +
+        "4. 도구/인터페이스 설계 — 입출력이 명확한가? 단위가 적절한가? 부작용 처리?\n" +
+        "5. 에러 처리·복구 — 실패 시 어떻게 행동하나? 침묵하지 않나?\n" +
+        "6. 평가·테스트 — 성공 기준이 정의됐나? 테스트 케이스가 있나?\n" +
+        "7. 상태·메모리 — 멀티스텝/장기 작업에서 상태를 어떻게 유지하나?\n" +
+        "8. 관찰가능성 — 무슨 일이 일어났는지 추적·디버깅 가능한가?\n" +
+        "9. 결정성 vs 유연성 — 코드/규칙으로 처리할 부분과 판단에 맡길 부분이 잘 나뉘었나?\n" +
+        "10. 합성가능성 — 다른 구성요소와 조합 가능한가? 단일 책임인가?\n" +
+        "11. 안전·경계 — 가드레일이 있나? 위험 동작에 제한이 있나?\n" +
+        "12. 문서화 — 처음 보는 사람도 이해할 수 있는 설명/가이드가 있나?\n" +
+        "13. 재현성·배포 — 환경/의존성/실행 방법이 명시되어 재현 가능한가?\n\n" +
+        "[작성 형식]\n" +
+        "- 해당하는 축마다 한 항목씩, 3~6개 권장. 각 항목은 `**축 이름** — 자료에서 보이는 현재 상태(근거 인용) → \"여기에 ○○을 더하면 ~해진다\"` 형태의 즉시 실행 가능한 제안으로.\n" +
+        "- 자료에서 정보가 부족해 판단이 어려운 축은 \"확인 필요\"로 분리해 간단히 적는다." +
+        COMMON_RULES
+    },
+    {
+      id: "study", num: "04", tag: "STUDY · GITHUB", title: "GitHub 학습 경로 · 다음 한 걸음", accent: "blueprint",
+      maxTokens: 3300,
+      system:
+        "당신은 작성자가 '계속 공부하도록' 실재하는 GitHub 저장소를 학습 경로로 안내하는 코치입니다.\n\n" +
+        "[실재성 규칙 — 필수]\n" +
+        "- 널리 알려져 실재가 거의 확실한 저장소만 추천한다(공식 조직·스타 많은 대표 저장소 등). 기억이 불확실한 저장소는 추천하지 않는다.\n" +
+        "- 저장소명·URL·작성자를 임의로 지어내지 않는다. 확신이 서는 실제 저장소만 링크로 제시한다.\n" +
+        "- 모든 추천 링크 끝에 \"(클릭 전 확인 권장)\"을 반드시 덧붙인다(실시간 검증을 거치지 않았으므로).\n" +
+        "- 적합한 저장소가 떠오르지 않으면, 지어내지 말고 \"추천 검색어\"(GitHub에서 찾을 키워드)로 대체한다.\n\n" +
+        "[추천 형식 — 레포 1~3개]\n" +
+        "각 레포마다:\n" +
+        "- **저장소명** — 한 줄 설명 + 실제 링크\n" +
+        "- 이 프로젝트와 왜 관련 있는지 (제출물의 구체적 부분을 인용해 연결)\n" +
+        "- 학습 방식: ⓐ 클론해서 바로 써보기 / ⓑ 리버스 엔지니어링으로 구조 뜯어보기 중 이 자료의 작성자에게 맞는 쪽을 고르고, \"어디부터 보면 되는지\"를 한 줄로.\n\n" +
+        "[마무리]\n" +
+        "마지막에 **다음 한 걸음 3개**를 우선순위 순서로 제시한다. 각 한 걸음은 작성자가 바로 시도할 수 있는 구체적 액션이어야 한다." +
+        COMMON_RULES
+    }
+  ];
+
+  /* ───────── DOM ───────── */
+  var $ = function(s){ return document.querySelector(s); };
+  var els = {
+    apikey: $("#apikey"), model: $("#model"), baseurl: $("#baseurl"), savekey: $("#savekey"),
+    dz: $("#dropzone"), file: $("#fileinput"), intakeNote: $("#intakeNote"),
+    intake: $("#intake"), review: $("#review"),
+    submission: $("#submission"),
+    stepper: $("#stepper"), stage: $("#stage"),
+    prevBtn: $("#prevBtn"), nextBtn: $("#nextBtn"), pageInd: $("#pageInd"),
+    analyzeBtn: $("#analyzeBtn"), resetBtn: $("#resetBtn")
+  };
+
+  var state = { extract: null, abort: null, running: false };
+
+  /* ───────── pdf.js worker ───────── */
+  if (window.pdfjsLib) {
+    pdfjsLib.GlobalWorkerOptions.workerSrc =
+      "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+  }
+
+  /* ───────── 설정 저장/복원 ───────── */
+  var LS = "projectReview.v1";
+  function loadSettings(){
+    try{
+      var raw = localStorage.getItem(LS);
+      if(!raw) return;
+      var s = JSON.parse(raw);
+      els.savekey.checked = true;
+      if(s.key) els.apikey.value = s.key;
+      if(s.model) els.model.value = s.model;
+      if(s.base) els.baseurl.value = s.base;
+    }catch(e){ /* ignore */ }
+  }
+  function persistSettings(){
+    if(!els.savekey.checked){ try{ localStorage.removeItem(LS); }catch(e){} return; }
+    try{
+      localStorage.setItem(LS, JSON.stringify({
+        key: els.apikey.value.trim(),
+        model: els.model.value,
+        base: els.baseurl.value.trim()
+      }));
+    }catch(e){ /* ignore */ }
+  }
+  function getApiKey(){ return els.apikey.value.trim(); }
+  function getModel(){ return HC.model || els.model.value || CONFIG.MODEL_DEFAULT; }
+  function getBaseUrl(){
+    var b = (els.baseurl.value || "").trim().replace(/\/+$/, "");
+    return b || CONFIG.BASE_URL_DEFAULT;
+  }
+
+  /* ───────── 텍스트 유틸 ───────── */
+  function clean(s){
+    return (s || "")
+      .replace(/\r/g, "")
+      .replace(/[ \t]+\n/g, "\n")
+      .replace(/\n{3,}/g, "\n\n")
+      .replace(/[ \t]{2,}/g, " ")
+      .trim();
+  }
+  function decodeXml(s){
+    return s
+      .replace(/&lt;/g, "<").replace(/&gt;/g, ">")
+      .replace(/&quot;/g, '"').replace(/&apos;/g, "'")
+      .replace(/&#x([0-9a-fA-F]+);/g, function(_, h){ return String.fromCodePoint(parseInt(h, 16)); })
+      .replace(/&#(\d+);/g, function(_, d){ return String.fromCodePoint(parseInt(d, 10)); })
+      .replace(/&amp;/g, "&");
+  }
+  function fmtNum(n){ return n.toLocaleString("ko-KR"); }
+  function escapeHtml(s){
+    return (s || "").replace(/[&<>"]/g, function(c){
+      return { "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;" }[c];
+    });
+  }
+
+  /* ───────── 포맷별 추출 ───────── */
+  async function extractHtmlText(str){
+    var doc = new DOMParser().parseFromString(str, "text/html");
+    doc.querySelectorAll("script,style,noscript,template,svg").forEach(function(n){ n.remove(); });
+    var root = doc.body || doc.documentElement;
+    return root ? (root.textContent || "") : "";
+  }
+  async function extractDocx(file){
+    if (typeof mammoth === "undefined") throw new Error("DOCX 추출 라이브러리를 불러오지 못했습니다. 네트워크를 확인해 주세요.");
+    var ab = await file.arrayBuffer();
+    var res = await mammoth.extractRawText({ arrayBuffer: ab });
+    return { text: res.value || "", warnings: [] };
+  }
+  async function extractPptx(file){
+    if (typeof JSZip === "undefined") throw new Error("PPTX 추출 라이브러리를 불러오지 못했습니다. 네트워크를 확인해 주세요.");
+    var zip = await JSZip.loadAsync(await file.arrayBuffer());
+    var names = Object.keys(zip.files).filter(function(n){ return /^ppt\/slides\/slide\d+\.xml$/.test(n); });
+    names.sort(function(a, b){
+      var na = parseInt((a.match(/slide(\d+)\.xml$/) || [])[1] || "0", 10);
+      var nb = parseInt((b.match(/slide(\d+)\.xml$/) || [])[1] || "0", 10);
+      return na - nb;
+    });
+    var parts = [];
+    for (var i = 0; i < names.length; i++){
+      var xml = await zip.files[names[i]].async("string");
+      var matches = xml.match(/<a:t[^>]*>([\s\S]*?)<\/a:t>/g) || [];
+      var texts = matches.map(function(m){
+        return decodeXml(m.replace(/^<a:t[^>]*>/, "").replace(/<\/a:t>$/, ""));
+      }).filter(function(t){ return t.trim().length; });
+      if (texts.length) parts.push("[슬라이드 " + (i + 1) + "] " + texts.join(" "));
+    }
+    var text = parts.join("\n\n");
+    var warnings = [];
+    if (text.trim().length < 40)
+      warnings.push("슬라이드에서 추출된 텍스트가 매우 적습니다 — 이미지 전용 슬라이드일 수 있어요. 텍스트가 담긴 자료로 보완하면 더 정확한 피드백이 가능합니다.");
+    return { text: text, warnings: warnings };
+  }
+  async function extractPdf(file){
+    if (typeof pdfjsLib === "undefined") throw new Error("PDF 추출 라이브러리를 불러오지 못했습니다. 네트워크를 확인해 주세요.");
+    var ab = await file.arrayBuffer();
+    var pdf = await pdfjsLib.getDocument({ data: ab }).promise;
+    var parts = [];
+    var acc = 0;
+    for (var p = 1; p <= pdf.numPages; p++){
+      var page = await pdf.getPage(p);
+      var tc = await page.getTextContent();
+      var s = tc.items.map(function(it){ return it.str; }).join(" ").trim();
+      if (s) parts.push(s);
+      acc += s.length;
+      if (acc > CONFIG.MAX_CHARS * 1.3) break;
+    }
+    var text = parts.join("\n\n");
+    var warnings = [];
+    if (text.trim().length < pdf.numPages * 15)
+      warnings.push("스캔본 PDF로 보입니다 — 텍스트 추출이 제한적일 수 있어요. 텍스트 기반 PDF나 원문으로 올리면 더 정확합니다.");
+    return { text: text, warnings: warnings };
+  }
+
+  async function extractFile(file){
+    var ext = (file.name.split(".").pop() || "").toLowerCase();
+    var warnings = [];
+    var text = "", format = "";
+
+    if (ext === "md" || ext === "markdown"){ format = "Markdown"; text = await file.text(); }
+    else if (ext === "txt"){ format = "Text"; text = await file.text(); }
+    else if (ext === "html" || ext === "htm"){ format = "HTML"; text = await extractHtmlText(await file.text()); }
+    else if (ext === "docx"){ format = "Word (.docx)"; var d = await extractDocx(file); text = d.text; warnings = d.warnings; }
+    else if (ext === "pptx"){ format = "PowerPoint (.pptx)"; var p = await extractPptx(file); text = p.text; warnings = p.warnings; }
+    else if (ext === "pdf"){ format = "PDF"; var f = await extractPdf(file); text = f.text; warnings = f.warnings; }
+    else if (ext === "ppt") throw new Error("구형 .ppt 형식은 지원하지 않습니다. PowerPoint에서 .pptx로 저장 후 올려 주세요.");
+    else if (ext === "doc") throw new Error("구형 .doc 형식은 지원하지 않습니다. Word에서 .docx로 저장 후 올려 주세요.");
+    else throw new Error("지원하지 않는 형식입니다: ." + ext + " (지원: md · txt · html · docx · pptx · pdf)");
+
+    var cleaned = clean(text);
+    var truncated = false, usable = cleaned;
+    if (usable.length > CONFIG.MAX_CHARS){ usable = usable.slice(0, CONFIG.MAX_CHARS); truncated = true; }
+    if (truncated)
+      warnings = warnings.concat(["추출 텍스트가 길어 앞부분 약 " + fmtNum(CONFIG.MAX_CHARS) + "자만 분석에 사용합니다."]);
+
+    return {
+      filename: file.name, format: format,
+      rawLen: cleaned.length, usableText: usable, truncated: truncated, warnings: warnings
+    };
+  }
+
+  /* ───────── 제출물 카드 렌더 ───────── */
+  function renderSubmission(ex){
+    var warnsHtml = ex.warnings.length
+      ? '<div class="warns">' + ex.warnings.map(function(w){
+          return '<div class="w"><span aria-hidden="true">⚠</span><span>' + escapeHtml(w) + '</span></div>';
+        }).join("") + '</div>'
+      : "";
+
+    var prevHtml = ex.usableText
+      ? '<details class="preview"><summary>추출 텍스트 미리보기</summary><pre>' +
+          escapeHtml(ex.usableText.slice(0, 4000)) +
+          (ex.usableText.length > 4000 ? "\n\n… (미리보기 일부)" : "") +
+        '</pre></details>'
+      : "";
+
+    els.submission.innerHTML =
+      '<div class="meta">' +
+        '<span class="fmt">' + escapeHtml(ex.format) + '</span>' +
+        '<span class="fname">' + escapeHtml(ex.filename) + '</span>' +
+        '<span class="stat">추출 ' + fmtNum(ex.rawLen) + '자' +
+          (ex.truncated ? ' · 분석 ' + fmtNum(ex.usableText.length) + '자' : '') + '</span>' +
+      '</div>' + warnsHtml + prevHtml;
+  }
+
+  /* ───────── 단계형 리포트 골격 ───────── */
+  var currentStep = 0;
+
+  function buildSectionCards(){
+    els.stepper.innerHTML = SECTIONS.map(function(s, i){
+      return '<button type="button" class="step" id="step-' + s.id + '" data-step="' + i + '">' +
+        '<span class="sn">' + s.num + '</span>' +
+        '<span class="sl">' + s.title + '</span>' +
+        '<span class="sd" aria-hidden="true"></span>' +
+      '</button>';
+    }).join("");
+
+    els.stage.innerHTML = SECTIONS.map(function(s){
+      return '' +
+      '<article class="card" id="card-' + s.id + '" data-accent="' + s.accent + '" data-id="' + s.id + '">' +
+        '<div class="chead">' +
+          '<span class="ctag">[ ' + s.num + ' · ' + s.tag + ' ]</span>' +
+          '<span class="ctitle">' + s.title + '</span>' +
+          '<span class="cstatus" data-status>대기</span>' +
+          '<button class="retry" type="button" data-retry="' + s.id + '">다시 시도</button>' +
+        '</div>' +
+        '<div class="cbody empty" data-body>분석을 시작하면 결과가 여기에 채워집니다.</div>' +
+      '</article>';
+    }).join("");
+
+    currentStep = 0;
+    goToStep(0);
+  }
+
+  function goToStep(i){
+    if (!SECTIONS.length) return;
+    currentStep = Math.max(0, Math.min(SECTIONS.length - 1, i));
+    var cards = els.stage.querySelectorAll(".card");
+    var steps = els.stepper.querySelectorAll(".step");
+    for (var k = 0; k < cards.length; k++){
+      cards[k].classList.toggle("active", k === currentStep);
+      if (steps[k]) steps[k].classList.toggle("active", k === currentStep);
+    }
+    updatePager();
+  }
+
+  function updatePager(){
+    if (els.pageInd) els.pageInd.textContent = (currentStep + 1) + " / " + SECTIONS.length;
+    if (els.prevBtn) els.prevBtn.disabled = currentStep === 0;
+    if (els.nextBtn){
+      var last = currentStep === SECTIONS.length - 1;
+      els.nextBtn.disabled = last;
+      els.nextBtn.textContent = last ? "마지막" : "다음 ▶";
+    }
+  }
+
+  function cardEl(id){ return document.getElementById("card-" + id); }
+
+  function setSectionState(id, st){
+    var card = cardEl(id);
+    if(!card) return;
+    var status = card.querySelector("[data-status]");
+    var body = card.querySelector("[data-body]");
+    card.classList.remove("is-loading", "is-done", "is-error");
+
+    var step = document.getElementById("step-" + id);
+    if (step){
+      step.classList.remove("s-loading", "s-done", "s-error");
+      if (st === "loading") step.classList.add("s-loading");
+      else if (st === "done") step.classList.add("s-done");
+      else if (st === "error") step.classList.add("s-error");
+    }
+
+    if (st === "loading"){
+      card.classList.add("is-loading");
+      status.innerHTML = '분석 중 <span class="dots"><i></i><i></i><i></i></span>';
+      body.className = "cbody empty";
+      body.innerHTML = '<div class="skel"></div><div class="skel s2"></div><div class="skel s3"></div>';
+    } else if (st === "done"){
+      card.classList.add("is-done");
+      status.textContent = "완료";
+    } else if (st === "error"){
+      card.classList.add("is-error");
+      status.textContent = "실패";
+    } else {
+      status.textContent = "대기";
+      body.className = "cbody empty";
+      body.textContent = "분석을 시작하면 결과가 여기에 채워집니다.";
+    }
+  }
+
+  function mdToSafe(s){
+    var html;
+    try{ html = window.marked ? marked.parse(s || "") : escapeHtml(s || ""); }
+    catch(e){ html = escapeHtml(s || ""); }
+    return window.DOMPurify ? DOMPurify.sanitize(html) : html;
+  }
+
+  function renderSectionBody(id, markdown){
+    var card = cardEl(id);
+    if(!card) return;
+    var body = card.querySelector("[data-body]");
+
+    // 본문과 각주를 [[각주]] 기준으로 분리
+    var parts = (markdown || "").split(/\[\[\s*각주\s*\]\]/);
+    var main = parts[0];
+    var foot = parts.slice(1).join("\n").trim();
+
+    body.className = "cbody";
+    body.innerHTML = mdToSafe(main) || "<p>(내용 없음)</p>";
+
+    if (foot){
+      var fn = document.createElement("div");
+      fn.className = "footnote";
+      fn.innerHTML = '<span class="fn-tag">📎 쉽게 풀어보기 · 용어 · 꿀팁</span>' +
+        '<div class="fn-body">' + mdToSafe(foot) + '</div>';
+      body.appendChild(fn);
+    }
+    setSectionState(id, "done");
+  }
+
+  function renderSectionError(id, message){
+    var card = cardEl(id);
+    if(!card) return;
+    var body = card.querySelector("[data-body]");
+    body.className = "cbody";
+    body.innerHTML = '<div class="err">분석에 실패했습니다: ' + escapeHtml(message) +
+      '<br><span style="opacity:.85">「다시 시도」로 이 섹션만 재요청할 수 있어요.</span></div>';
+    setSectionState(id, "error");
+  }
+
+  /* link safety hook (한 번만 등록) */
+  if (window.DOMPurify){
+    DOMPurify.addHook("afterSanitizeAttributes", function(node){
+      if (node.tagName === "A"){
+        node.setAttribute("target", "_blank");
+        node.setAttribute("rel", "noopener noreferrer nofollow");
+      }
+    });
+  }
+
+  /* ───────── Claude API 호출 ───────── */
+  function extractText(resp){
+    if (!resp || !Array.isArray(resp.content)) return "";
+    return resp.content
+      .filter(function(b){ return b.type === "text"; })
+      .map(function(b){ return b.text; })
+      .join("\n").trim();
+  }
+
+  function sleep(ms, signal){
+    return new Promise(function(resolve, reject){
+      var t = setTimeout(resolve, ms);
+      if (signal){
+        if (signal.aborted){ clearTimeout(t); reject(new DOMException("Aborted", "AbortError")); return; }
+        signal.addEventListener("abort", function(){ clearTimeout(t); reject(new DOMException("Aborted", "AbortError")); }, { once: true });
+      }
+    });
+  }
+  // 지수 백오프 + 지터 (동시 접속 시 재시도를 분산해 혼잡 완화)
+  function backoff(attempt, retryAfter, signal){
+    var ra = parseInt(retryAfter || "0", 10);
+    var ms = ra > 0 ? ra * 1000 : Math.min(12000, 600 * Math.pow(2, attempt));
+    ms += Math.floor(Math.random() * 500);
+    return sleep(ms, signal);
+  }
+
+  async function callClaude(opts){
+    var url, headers;
+    if (MODE === "proxy"){
+      // 키는 서버(env)에 있음 — 브라우저는 키를 보내지 않는다.
+      url = HC.proxyUrl;
+      headers = { "content-type": "application/json", "x-app-password": appPassword || "" };
+    } else {
+      var apiKey = getApiKey();
+      if (!apiKey) throw new Error("API 키가 필요합니다.");
+      url = getBaseUrl() + "/v1/messages";
+      headers = {
+        "content-type": "application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": CONFIG.ANTHROPIC_VERSION,
+        "anthropic-dangerous-direct-browser-access": "true"
+      };
+    }
+
+    var messages = [{ role: "user", content: opts.content }];
+    var last = null;
+    var pauseCount = 0, retryCount = 0;
+    var MAX_PAUSE = 5, MAX_RETRY = 5;
+
+    // pause_turn(web_search) 재개 + 일시적 오류(429/5xx/네트워크) 자동 재시도
+    while (true){
+      var body = {
+        model: getModel(),
+        max_tokens: opts.maxTokens || 2000,
+        system: opts.system,
+        messages: messages
+      };
+      if (opts.tools) body.tools = opts.tools;
+
+      var resp;
+      try {
+        resp = await fetch(url, {
+          method: "POST", headers: headers,
+          body: JSON.stringify(body),
+          signal: opts.signal
+        });
+      } catch (netErr) {
+        if (netErr && netErr.name === "AbortError") throw netErr;
+        // 일시적 네트워크 끊김 → 백오프 후 재시도
+        if (retryCount < MAX_RETRY){ retryCount++; await backoff(retryCount, null, opts.signal); continue; }
+        if (MODE === "proxy")
+          throw new Error("서버에 연결하지 못했습니다. 잠시 후 「다시 시도」를 눌러 주세요.");
+        throw new Error("네트워크 오류: API에 연결하지 못했습니다. " + ((netErr && netErr.message) || ""));
+      }
+
+      if (!resp.ok){
+        // 혼잡/일시 오류(429·529·5xx)는 백오프 후 자동 재시도 → 동시 접속 시 끊김 방지
+        if ((resp.status === 429 || resp.status === 529 || resp.status >= 500) && retryCount < MAX_RETRY){
+          retryCount++;
+          await backoff(retryCount, resp.headers.get("retry-after"), opts.signal);
+          continue;
+        }
+        var msg = "HTTP " + resp.status;
+        try{
+          var errJson = await resp.json();
+          if (errJson && errJson.error && errJson.error.message) msg = errJson.error.message;
+        }catch(e){}
+        if (resp.status === 401){
+          if (MODE === "proxy"){ showGate(); msg = "비밀번호가 만료되었거나 올바르지 않습니다. 다시 입력해 주세요."; }
+          else msg = "API 키가 올바르지 않습니다. 키를 확인해 주세요.";
+        }
+        else if (resp.status === 429 || resp.status === 529) msg = "요청이 많아 잠시 제한되었습니다. 잠시 후 「다시 시도」를 눌러 주세요.";
+        throw new Error(msg);
+      }
+
+      var data = await resp.json();
+      last = data;
+      if (data.stop_reason === "pause_turn" && pauseCount < MAX_PAUSE){
+        pauseCount++;
+        messages.push({ role: "assistant", content: data.content });
+        continue;
+      }
+      break;
+    }
+
+    var text = extractText(last);
+    if (!text) throw new Error("응답에서 텍스트를 받지 못했습니다.");
+    return text;
+  }
+
+  function buildUserContent(ex){
+    return '다음은 제출된 "프로젝트 설명 자료"에서 추출한 텍스트입니다. ' +
+      '형식: ' + ex.format + '. 이 텍스트만을 근거로 분석하세요.\n\n' +
+      '<제출물>\n' + ex.usableText + '\n</제출물>';
+  }
+
+  async function analyzeSection(section, content, signal){
+    return callClaude({
+      system: section.system,
+      content: content,
+      tools: section.tools,
+      maxTokens: section.maxTokens,
+      signal: signal
+    });
+  }
+
+  /* ───────── 분석 실행 ───────── */
+  function runAllSections(){
+    if (state.running) return;
+    var ex = state.extract;
+    if (!ex || ex.usableText.length < CONFIG.MIN_CHARS) return;
+    if (!isReady()){
+      els.intakeNote.className = "intake-note warn";
+      els.intakeNote.textContent = "분석하려면 상단에 Claude API 키를 입력해 주세요.";
+      els.apikey.focus();
+      return;
+    }
+
+    // 이전 실행 중단
+    if (state.abort) state.abort.abort();
+    state.abort = new AbortController();
+    state.running = true;
+    els.analyzeBtn.disabled = true;
+    els.analyzeBtn.textContent = "분석 중…";
+    persistSettings();
+    goToStep(0);
+
+    var content = buildUserContent(ex);
+    var signal = state.abort.signal;
+
+    var jobs = SECTIONS.map(function(s){
+      setSectionState(s.id, "loading");
+      return analyzeSection(s, content, signal)
+        .then(function(md){ renderSectionBody(s.id, md); })
+        .catch(function(err){
+          if (err && err.name === "AbortError") return;
+          renderSectionError(s.id, (err && err.message) || String(err));
+        });
+    });
+
+    Promise.allSettled(jobs).then(function(){
+      state.running = false;
+      els.analyzeBtn.disabled = false;
+      els.analyzeBtn.textContent = "다시 분석";
+    });
+  }
+
+  function retrySection(id){
+    var ex = state.extract;
+    if (!ex || !isReady()) return;
+    var section = SECTIONS.filter(function(s){ return s.id === id; })[0];
+    if (!section) return;
+    if (!state.abort) state.abort = new AbortController();
+    var content = buildUserContent(ex);
+    setSectionState(id, "loading");
+    analyzeSection(section, content, state.abort.signal)
+      .then(function(md){ renderSectionBody(id, md); })
+      .catch(function(err){
+        if (err && err.name === "AbortError") return;
+        renderSectionError(id, (err && err.message) || String(err));
+      });
+  }
+
+  /* ───────── 파일 수신 ───────── */
+  async function handleFile(file){
+    if (!file) return;
+    if (state.abort){ state.abort.abort(); state.abort = null; }
+    state.running = false;
+
+    els.intakeNote.className = "intake-note";
+    els.intakeNote.textContent = "추출 중… (" + escapeHtml(file.name) + ")";
+
+    var ex;
+    try{
+      ex = await extractFile(file);
+    }catch(err){
+      els.intakeNote.className = "intake-note warn";
+      els.intakeNote.textContent = (err && err.message) || "추출에 실패했습니다.";
+      return;
+    }
+
+    if (ex.usableText.length < CONFIG.MIN_CHARS){
+      state.extract = ex;
+      renderSubmission(ex);
+      els.review.hidden = false;
+      buildSectionCards();
+      els.analyzeBtn.disabled = true;
+      els.intakeNote.className = "intake-note warn";
+      els.intakeNote.textContent =
+        "추출된 텍스트가 너무 적어(" + fmtNum(ex.usableText.length) + "자) 분석을 멈췄습니다. " +
+        "이미지 전용 슬라이드/스캔본일 수 있어요. 텍스트가 담긴 자료로 다시 시도해 주세요.";
+      els.review.scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
+    }
+
+    state.extract = ex;
+    renderSubmission(ex);
+    buildSectionCards();
+    els.review.hidden = false;
+    els.analyzeBtn.disabled = false;
+    els.intakeNote.className = "intake-note";
+    els.intakeNote.textContent = "";
+    els.review.scrollIntoView({ behavior: "smooth", block: "start" });
+
+    // 준비되면 자동 시작 (프록시 모드는 키 입력 불필요)
+    if (isReady()) runAllSections();
+    else {
+      els.intakeNote.className = "intake-note warn";
+      els.intakeNote.textContent = "분석하려면 상단에 Claude API 키를 입력한 뒤 「분석 시작」을 눌러 주세요.";
+    }
+  }
+
+  function resetAll(){
+    if (state.abort){ state.abort.abort(); state.abort = null; }
+    state.extract = null; state.running = false;
+    els.review.hidden = true;
+    els.submission.innerHTML = "";
+    els.stepper.innerHTML = "";
+    els.stage.innerHTML = "";
+    els.file.value = "";
+    els.analyzeBtn.disabled = false;
+    els.analyzeBtn.textContent = "분석 시작";
+    els.intakeNote.className = "intake-note";
+    els.intakeNote.textContent = "";
+    els.intake.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  /* ───────── 이벤트 바인딩 ───────── */
+  els.dz.addEventListener("click", function(){ els.file.click(); });
+  els.dz.addEventListener("keydown", function(e){
+    if (e.key === "Enter" || e.key === " "){ e.preventDefault(); els.file.click(); }
+  });
+  ["dragenter", "dragover"].forEach(function(ev){
+    els.dz.addEventListener(ev, function(e){ e.preventDefault(); els.dz.classList.add("drag"); });
+  });
+  ["dragleave", "drop"].forEach(function(ev){
+    els.dz.addEventListener(ev, function(e){ e.preventDefault(); els.dz.classList.remove("drag"); });
+  });
+  els.dz.addEventListener("drop", function(e){
+    var f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+    if (f) handleFile(f);
+  });
+  els.file.addEventListener("change", function(e){
+    var f = e.target.files && e.target.files[0];
+    if (f) handleFile(f);
+  });
+
+  els.analyzeBtn.addEventListener("click", runAllSections);
+  els.resetBtn.addEventListener("click", resetAll);
+
+  els.stage.addEventListener("click", function(e){
+    var btn = e.target.closest("[data-retry]");
+    if (btn) retrySection(btn.getAttribute("data-retry"));
+  });
+  els.stepper.addEventListener("click", function(e){
+    var s = e.target.closest("[data-step]");
+    if (s) goToStep(parseInt(s.getAttribute("data-step"), 10));
+  });
+  els.prevBtn.addEventListener("click", function(){ goToStep(currentStep - 1); });
+  els.nextBtn.addEventListener("click", function(){ goToStep(currentStep + 1); });
+
+  var gf = document.getElementById("gateForm");
+  if (gf) gf.addEventListener("submit", async function(e){
+    e.preventDefault();
+    var g = gateEls();
+    var pw = g.pw ? g.pw.value : "";
+    if (g.err) g.err.hidden = true;
+    if (g.btn){ g.btn.disabled = true; g.btn.textContent = "확인 중…"; }
+    var st = await authPing(pw);
+    if (g.btn){ g.btn.disabled = false; g.btn.textContent = "입장"; }
+    if (st === 200){
+      appPassword = pw;
+      try{ sessionStorage.setItem(GATE_KEY, pw); }catch(e){}
+      hideGate();
+    } else if (st === 401){
+      if (g.err){ g.err.textContent = "비밀번호가 올바르지 않습니다."; g.err.hidden = false; }
+    } else {
+      if (g.err){ g.err.textContent = "확인 중 오류가 발생했습니다. 다시 시도해 주세요."; g.err.hidden = false; }
+    }
+  });
+
+  els.savekey.addEventListener("change", persistSettings);
+  els.apikey.addEventListener("change", function(){ if (els.savekey.checked) persistSettings(); });
+  els.model.addEventListener("change", function(){ if (els.savekey.checked) persistSettings(); });
+  els.baseurl.addEventListener("change", function(){ if (els.savekey.checked) persistSettings(); });
+
+  /* ───────── init ───────── */
+  if (MODE === "proxy"){
+    var kb = document.querySelector(".keybar");
+    if (kb) kb.hidden = true;   // 키 입력칸 숨김 — 키는 서버(env)에만
+  } else {
+    loadSettings();
+  }
+  initGate();   // 비밀번호 게이트 (APP_PASSWORD 설정 시 작동)
+})();
+</script>
+</body>
+</html>
