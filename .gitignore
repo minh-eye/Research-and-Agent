@@ -2,3 +2,7 @@ node_modules/
 .env
 .env.local
 .DS_Store
+
+# Agent working files (manuscripts, reviews) stay local
+_workspace/*
+!_workspace/.gitkeep
