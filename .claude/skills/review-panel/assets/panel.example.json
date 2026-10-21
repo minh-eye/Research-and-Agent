@@ -1,0 +1,51 @@
+{
+  "manuscript": "자연환기 사무소 건물의 하절기 온열 쾌적성: 실측과 재실자 설문의 비교",
+  "venue": "Building and Environment",
+  "cycle": 2,
+  "date": "2026-10-21",
+  "preliminary": false,
+  "reviewers": [
+    {
+      "id": "A", "persona": "방법론·통계", "status": "done", "score": "Minor Revision",
+      "summary": "반복측정 구조를 혼합효과모형으로 다시 분석한 점이 개선되었다. 설문 척도 신뢰도 보고가 아직 빠져 있다.",
+      "audit": {"1": "pass", "2": "pass", "3": "pass", "4": "pass", "5": "fail", "6": "pass"}
+    },
+    {
+      "id": "B", "persona": "비교·일반화", "status": "done", "score": "Major Revision",
+      "summary": "단일 건물·단일 하절기 자료로 '자연환기 사무소 전반'을 말하고 있다. 주장 범위를 좁혀야 한다.",
+      "audit": {"1": "pass", "2": "pass", "3": "pass", "4": "fail", "5": "pass", "6": "fail"}
+    },
+    {
+      "id": "C", "persona": "건축환경 도메인", "status": "done", "score": "Minor Revision",
+      "summary": "적응형 모델 적용은 타당하다. 평균복사온도 산정에 쓴 글로브 온도계 보정식을 명시해야 한다.",
+      "audit": {"1": "pass", "2": "pass", "3": "pass", "4": "pass", "5": "pass", "6": "pass"}
+    },
+    {
+      "id": "D", "persona": "회의적 독자", "status": "done", "score": "Major Revision",
+      "summary": "설문 응답이 측정보다 덥게 나온 차이를 기대 효과로만 설명한다. 창가 좌석 편향 같은 대안 설명을 검토해야 한다.",
+      "audit": {"1": "pass", "2": "fail", "3": "pass", "4": "pass", "5": "pass", "6": "fail"}
+    },
+    {
+      "id": "E", "persona": "글쓰기·표현", "status": "done", "score": "Minor Revision",
+      "summary": "구조는 명확하다. '실내온도'와 '작용온도'가 섞여 쓰이고 그림 4가 이중 y축이다.",
+      "audit": {"1": "pass", "2": "pass", "3": "fail", "4": "pass", "5": "fail", "6": "pass"}
+    }
+  ],
+  "issues": [
+    {"id": "I1", "title": "단일 건물 결과를 자연환기 사무소 전반으로 일반화", "category": "comparison", "severity": "major", "raised_by": ["B", "D", "A"], "pass2": false, "triage": "consensus", "decision": "accept", "status": "open"},
+    {"id": "I2", "title": "설문-실측 차이에 대한 대안 설명 미검토", "category": "correctness", "severity": "major", "raised_by": ["D", "C"], "pass2": false, "triage": "majority", "decision": "accept", "status": "open"},
+    {"id": "I3", "title": "온열감 척도 신뢰도(Cronbach's α) 미보고", "category": "correctness", "severity": "minor", "raised_by": ["A"], "pass2": false, "triage": "individual", "decision": "accept", "status": "addressed"},
+    {"id": "I4", "title": "평균복사온도 보정식 누락", "category": "correctness", "severity": "minor", "raised_by": ["C"], "pass2": false, "triage": "individual", "decision": "accept", "status": "addressed"},
+    {"id": "I5", "title": "고찰 3절이 결과 4.2절 분석을 반복", "category": "structure", "severity": "major", "raised_by": ["B", "E"], "pass2": true, "triage": "consensus", "decision": "accept", "status": "open"},
+    {"id": "I6", "title": "결론에 초록에 없는 에너지 절감 주장", "category": "structure", "severity": "major", "raised_by": ["D", "B"], "pass2": false, "triage": "majority", "decision": "partial", "status": "open"},
+    {"id": "I7", "title": "그림 4 이중 y축", "category": "clarity", "severity": "minor", "raised_by": ["E"], "pass2": false, "triage": "individual", "decision": "accept", "status": "addressed"},
+    {"id": "I8", "title": "실내온도·작용온도 용어 혼용", "category": "clarity", "severity": "minor", "raised_by": ["E", "C"], "pass2": false, "triage": "majority", "decision": "accept", "status": "open"},
+    {"id": "I9", "title": "창가 좌석 응답자 비율 미보고", "category": "comparison", "severity": "minor", "raised_by": ["D"], "pass2": false, "triage": "individual", "decision": "reject", "status": "open"},
+    {"id": "I10", "title": "표 3 단위 표기 누락", "category": "cosmetic", "severity": "minor", "raised_by": [], "pass2": true, "triage": "consensus", "decision": "accept", "status": "addressed"}
+  ],
+  "claims": [
+    {"claim": "자연환기 사무소의 재실자는 적응형 모델 예측보다 높은 온도를 허용한다", "challenge": "단일 건물·단일 계절 자료 (I1)", "resolution": "claim_narrowed"},
+    {"claim": "설문 온열감과 실측 작용온도의 차이는 재실자 기대 효과 때문이다", "challenge": "창가 좌석 편향 등 대안 설명 미검토 (I2)", "resolution": "unresolved"},
+    {"claim": "운영 개선으로 냉방 에너지를 줄일 수 있다", "challenge": "에너지 측정 없음 (I6)", "resolution": "limitation_disclosed"}
+  ]
+}

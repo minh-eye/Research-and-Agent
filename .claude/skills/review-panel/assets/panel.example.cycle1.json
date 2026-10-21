@@ -1,0 +1,15 @@
+{
+  "manuscript": "자연환기 사무소 건물의 하절기 온열 쾌적성: 실측과 재실자 설문의 비교",
+  "venue": "Building and Environment",
+  "cycle": 1,
+  "date": "2026-09-30",
+  "reviewers": [
+    {"id": "A", "persona": "방법론·통계", "status": "done", "score": "Major Revision"},
+    {"id": "B", "persona": "비교·일반화", "status": "done", "score": "Major Revision"},
+    {"id": "C", "persona": "건축환경 도메인", "status": "done", "score": "Major Revision"},
+    {"id": "D", "persona": "회의적 독자", "status": "done", "score": "Reject"},
+    {"id": "E", "persona": "글쓰기·표현", "status": "done", "score": "Minor Revision"}
+  ],
+  "issues": [],
+  "claims": []
+}
