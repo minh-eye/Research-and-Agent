@@ -87,6 +87,24 @@ python3 .claude/skills/review-panel/scripts/build_dashboard.py _workspace/review
 
 이전 사이클이 있으면 `--history _workspace/review/cycle1/panel.json ...`을 더해 사이클별 판정 추이를 함께 그린다. 스크립트는 외부 라이브러리 없이 단일 HTML 파일을 만들므로 브라우저로 바로 열 수 있다. 생성 후 사용자에게 파일을 보낸다.
 
+이어서 웹 대시보드(아래 "웹 대시보드")에서 열 수 있도록 결과 파일을 만든다:
+
+```bash
+python3 .claude/skills/review-panel/scripts/export_bundle.py _workspace/review/cycle{N} -o _workspace/review/cycle{N}/bundle.json
+```
+
+## 웹 대시보드
+
+`app/review-desk.html`은 claude.ai Artifact로 게시된 웹 앱이다(https://claude.ai/artifact/2CEjH1ZmMEcmVeJaW5xbQZ, 소유자 전용). 이 스킬과 같은 패널(A~E + 편집위원장)을 브라우저에서 실행한다.
+
+- 원고(.docx/.pdf/.md/.txt) 업로드, 목표 학술지·논문 유형·연구 분야·리뷰 언어 선택, 재심사 대상 지정
+- 심사위원 호출은 페이지의 `sample` capability로, 보는 사람의 Claude 계정 사용량으로 실행된다. 호출마다 기억이 없으므로 리뷰어 독립성이 구조적으로 보장된다
+- 결과는 보는 사람 전용 저장소(`db`의 `data/users/<id>/`)에 저장되고, 원고 본문은 저장하지 않는다
+- 종합 보고서·답변서 초안·리뷰 원문(.md)과 전체 결과(.json)를 내려받는다
+- 로컬 스킬로 만든 `bundle.json`을 "기록 → 결과 파일 불러오기"로 가져올 수 있다
+
+앱의 페르소나·프롬프트를 바꿀 때는 `.claude/agents/review-*.md`와 함께 고쳐 둘을 맞춘다. 수정 후 같은 파일 경로로 다시 게시하면 URL이 유지된다.
+
 ## Phase 5: 보고와 수정
 
 1. 사용자에게 요약한다: 리뷰어별 판정, consensus 지적 목록, 미해결 핵심 주장, 대시보드 경로

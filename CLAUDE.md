@@ -37,3 +37,4 @@ _workspace/               ← 에이전트 팀 중간 산출물 저장소
 |------|---------|------|------|
 | 2026-06-19 | 초기 구성 | 전체 | revfactory/harness v1.2.0 기반 설치 |
 | 2026-10-21 | 원고 심사 패널 추가 (리뷰어 에이전트 5종, review-panel, citation-verify, 대시보드 스크립트) | `.claude/agents/review-*`, `.claude/skills/review-panel`, `.claude/skills/citation-verify` | dalbom/rev2agent(MIT)의 리뷰 패널·인용 검증을 건축환경 연구용으로 이식 |
+| 2026-10-21 | 웹 대시보드 앱(review-desk.html)과 결과 변환 스크립트(export_bundle.py) 추가 | `.claude/skills/review-panel/app`, `.claude/skills/review-panel/scripts` | 어떤 원고든 브라우저에서 학술지를 골라 심사하고 결과·문서를 내려받기 위해 |
